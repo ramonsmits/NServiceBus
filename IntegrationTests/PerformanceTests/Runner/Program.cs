@@ -2,6 +2,7 @@
 
 namespace Runner
 {
+    using System.Configuration;
     using System.Diagnostics;
     using System.Threading;
     using System.Threading.Tasks;
@@ -9,6 +10,7 @@ namespace Runner
 
     using NServiceBus;
     using NServiceBus.Features;
+    using NServiceBus.Persistence.NHibernate;
     using Runner.Saga;
 
     class Program
@@ -21,6 +23,7 @@ namespace Runner
             bool twoPhaseCommit = (args[4].ToLower() == "twophasecommit");
             bool saga = (args[5].ToLower() == "sagamessages");
             bool nhibernate = (args[6].ToLower() == "nhibernate");
+            int concurrency = int.Parse(args[7]);
 
             TransportConfigOverride.MaximumConcurrencyLevel = numberOfThreads;
 
@@ -66,6 +69,14 @@ namespace Runner
 
                 if (nhibernate)
                 {
+                    NHibernateSettingRetriever.ConnectionStrings = () =>
+                    {
+                        var c = new ConnectionStringSettingsCollection();
+
+                        c.Add(new ConnectionStringSettings("NServiceBus/Persistence", SqlServerConnectionString));
+                        return c;
+
+                    };
                     config.UseNHibernateSagaPersister();
 
                 }
@@ -92,7 +103,7 @@ namespace Runner
                     break;
 
                 case "sqlserver":
-                    config.UseTransport<SqlServer>(() => @"Server=localhost\sqlexpress;Database=nservicebus;Trusted_Connection=True;");
+                    config.UseTransport<SqlServer>(() => SqlServerConnectionString);
                     break;
 
                 case "activemq":
@@ -111,9 +122,21 @@ namespace Runner
                 Configure.Instance.ForInstallationOn<NServiceBus.Installation.Environments.Windows>().Install();
 
                 var processorTimeBefore = Process.GetCurrentProcess().TotalProcessorTime;
-                var sendTimeNoTx = SeedInputQueue(numberOfMessages, endpointName, numberOfThreads, false, twoPhaseCommit, saga, true);
-                var sendTimeWithTx = SeedInputQueue(numberOfMessages, endpointName, numberOfThreads, true, twoPhaseCommit, saga, false);
+                var sendTimeNoTx = TimeSpan.FromSeconds(1); //not used for sagas
+                var sendTimeWithTx = TimeSpan.FromSeconds(1);
+                
+                
+                if (saga)
+                {
+                    SeedSagaMessages(numberOfMessages*2, endpointName, concurrency);
 
+                }
+                else
+                {
+                    sendTimeNoTx = SeedInputQueue(numberOfMessages, endpointName, numberOfThreads, false, twoPhaseCommit, saga, true);
+                    sendTimeWithTx = SeedInputQueue(numberOfMessages, endpointName, numberOfThreads, true, twoPhaseCommit, saga, true);
+                }
+                
                 var startTime = DateTime.Now;
 
                 startableBus.Start();
@@ -135,6 +158,24 @@ namespace Runner
                                       Convert.ToDouble(numberOfMessages) / sendTimeWithTx.TotalSeconds);
 
             }
+        }
+
+        static void SeedSagaMessages(int numberOfMessages, string inputQueue, int concurrency)
+        {
+            var bus = Configure.Instance.Builder.Build<IBus>();
+
+            for (int i = 0; i < numberOfMessages/concurrency; i++)
+            {
+
+                for (int j = 0; j < concurrency; j++)
+                {
+                    bus.Send(inputQueue, new StartSagaMessage
+                    {
+                        Id = i
+                    });
+                }
+            }
+            
         }
 
         static TimeSpan SeedInputQueue(int numberOfMessages, string inputQueue, int numberOfThreads, bool createTransaction, bool twoPhaseCommit, bool saga, bool startSaga)
@@ -185,5 +226,9 @@ namespace Runner
 
             return new TestMessage();
         }
+
+        static string SqlServerConnectionString = @"Server=localhost\sqlexpress;Database=nservicebus;Trusted_Connection=True;";
+
+       
     }
 }

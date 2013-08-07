@@ -18,21 +18,27 @@
 
         public void Handle(StartSagaMessage message)
         {
+            Transaction.Current.TransactionCompleted += AfterMessage;
             this.BeforeMessage(message);
             this.Data.Number = message.Id;
-            this.AfterMessage();
+            Data.NumCalls++;
         }
 
         public void Handle(CompleteSagaMessage message)
         {
             this.BeforeMessage(message);
             this.MarkAsComplete();
-            this.AfterMessage();
         }
 
-        private void AfterMessage()
+        private void AfterMessage(object sender, TransactionEventArgs transactionEventArgs)
         {
+            if (transactionEventArgs.Transaction.TransactionInformation.Status != TransactionStatus.Committed)
+                return;
             Timings.Last = DateTime.Now;
+            Interlocked.Increment(ref Timings.NumberOfMessages);
+
+
+
         }
 
         private void BeforeMessage(MessageBase message)
@@ -41,8 +47,7 @@
             {
                 Timings.First = DateTime.Now;
             }
-            Interlocked.Increment(ref Timings.NumberOfMessages);
-
+       
             if (message.TwoPhaseCommit)
             {
                 Transaction.Current.EnlistDurable(Guid.NewGuid(), enlistment, EnlistmentOptions.None);
