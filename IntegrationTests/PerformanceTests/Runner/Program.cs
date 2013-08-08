@@ -78,6 +78,10 @@ namespace Runner
 
                     };
                     config.UseNHibernateSagaPersister();
+                    //Configure.Transactions.Advanced(a=>a.IsolationLevel(IsolationLevel.Serializable));
+
+                    Configure.Transactions.Advanced(a => a.DefaultTimeout(TimeSpan.FromSeconds(5)));
+                    //Configure.Transactions.Advanced(a => a.DisableDistributedTransactions());
 
                 }
                 else
@@ -171,7 +175,9 @@ namespace Runner
                 {
                     bus.Send(inputQueue, new StartSagaMessage
                     {
-                        Id = i
+                        Id = i,
+                        SequenceNo = i + j
+
                     });
                 }
             }
