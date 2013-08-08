@@ -25,7 +25,7 @@
 
 function Cleanup ()
 {
-	sqlcmd -S .\SQLEXPRESS -d NServiceBus -i ..\..\..\..\src\SqlServer\Scripts\Reset-Database.sql
+	sqlcmd -S .\SQLEXPRESS -d NServiceBus -i ..\..\..\..\src\SqlServer\Scripts\Reset-Database.sql | Out-Null
 	
-	..\..\..\..\src\NServiceBus.Core\Transports\Msmq\Scripts\Reset-Msmq.ps1
+	..\..\..\..\src\NServiceBus.Core\Transports\Msmq\Scripts\Reset-Msmq.ps1 | Out-Null
 }

@@ -121,43 +121,39 @@ namespace Runner
             {
                 Configure.Instance.ForInstallationOn<NServiceBus.Installation.Environments.Windows>().Install();
 
-                var processorTimeBefore = Process.GetCurrentProcess().TotalProcessorTime;
-                var sendTimeNoTx = TimeSpan.FromSeconds(1); //not used for sagas
-                var sendTimeWithTx = TimeSpan.FromSeconds(1);
-                
-                
                 if (saga)
                 {
-                    SeedSagaMessages(numberOfMessages*2, endpointName, concurrency);
-
+                    SeedSagaMessages(numberOfMessages, endpointName, concurrency);
                 }
                 else
                 {
-                    sendTimeNoTx = SeedInputQueue(numberOfMessages, endpointName, numberOfThreads, false, twoPhaseCommit, saga, true);
-                    sendTimeWithTx = SeedInputQueue(numberOfMessages, endpointName, numberOfThreads, true, twoPhaseCommit, saga, true);
+                    Statistics.SendTimeNoTx = SeedInputQueue(numberOfMessages/2, endpointName, numberOfThreads, false, twoPhaseCommit, saga, true);
+                    Statistics.SendTimeWithTx = SeedInputQueue(numberOfMessages / 2, endpointName, numberOfThreads, true, twoPhaseCommit, saga, true);
                 }
                 
-                var startTime = DateTime.Now;
+                Statistics.StartTime = DateTime.Now;
 
                 startableBus.Start();
 
-                while (Interlocked.Read(ref Timings.NumberOfMessages) < numberOfMessages * 2)
+                while (Interlocked.Read(ref Statistics.NumberOfMessages) < numberOfMessages)
                     Thread.Sleep(1000);
 
-                var durationSeconds = (Timings.Last - Timings.First.Value).TotalSeconds;
-                Console.Out.WriteLine("Threads: {0}, NumMessages: {1}, Serialization: {2}, Transport: {3}, Throughput: {4:0.0} msg/s, Sending: {5:0.0} msg/s, Sending in Tx: {9:0.0} msg/s, TimeToFirstMessage: {6:0.0}s, TotalProcessorTime: {7:0.0}s, Mode:{8}",
-                                      numberOfThreads,
-                                      numberOfMessages * 2,
-                                      args[2],
-                                      args[3],
-                                      Convert.ToDouble(numberOfMessages * 2) / durationSeconds,
-                                      Convert.ToDouble(numberOfMessages) / sendTimeNoTx.TotalSeconds,
-                                      (Timings.First - startTime).Value.TotalSeconds,
-                                      (Process.GetCurrentProcess().TotalProcessorTime - processorTimeBefore).TotalSeconds,
-                                      args[4],
-                                      Convert.ToDouble(numberOfMessages) / sendTimeWithTx.TotalSeconds);
+            
+                DumpSetting(args);
+                Statistics.Dump();
+
+              
 
             }
+        }
+
+        static void DumpSetting(string[] args)
+        {
+            Console.Out.WriteLine("---------------- Settings ----------------");
+            Console.Out.WriteLine("Threads: {0}, Serialization: {1}, Transport: {2}",
+                                  args[0],
+                                  args[2],
+                                  args[3]);
         }
 
         static void SeedSagaMessages(int numberOfMessages, string inputQueue, int concurrency)
