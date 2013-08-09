@@ -1,6 +1,7 @@
 namespace NServiceBus.UnitOfWork.NHibernate
 {
     using System;
+    using System.Threading;
     using System.Transactions;
     using global::NHibernate;
 
@@ -32,6 +33,15 @@ namespace NServiceBus.UnitOfWork.NHibernate
         {
             if (SessionFactory == null || currentSession == null) return;
 
+            if (ex != null)
+            {
+                Transaction.Current.Rollback(ex);
+                while (Transaction.Current.TransactionInformation.Status != TransactionStatus.Aborted)
+                {
+                    Thread.Sleep(20);
+                } 
+            }
+
             using (currentSession)
             using (currentSession.Transaction)
             {
@@ -40,6 +50,8 @@ namespace NServiceBus.UnitOfWork.NHibernate
 
                 if (ex != null)
                 {
+                   
+
                     // Due to a race condition in NH3.3, explicit rollback can cause exceptions and corrupt the connection pool. 
                     // Especially if there are more than one NH session taking part in the DTC transaction
                     //currentSession.Transaction.Rollback();
