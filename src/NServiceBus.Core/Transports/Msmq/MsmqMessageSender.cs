@@ -44,7 +44,7 @@ namespace NServiceBus.Transports.Msmq
             var transactionType = GetTransactionTypeForSend();
             if (message.TimeToBeReceived < MessageQueue.InfiniteTimeout && WillUseTransactionThatSupportsMultipleOperations(suppressNativeTransactions, transactionType))
             {
-                throw new Exception($"Failed to send message to address: {address.Queue}@{address.Machine}. Sending messages with a custom TimeToBeReceived is not supported on transactional MSMQ.");
+                throw new Exception(string.Format("Failed to send message to address: {0}@{1}. Sending messages with a custom TimeToBeReceived is not supported on transactional MSMQ.", address.Queue, address.Machine));
             }
 
             try
