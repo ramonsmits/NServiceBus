@@ -35,7 +35,7 @@ namespace NServiceBus.Encryption.Rijndael
     /// <summary>
     /// Implementation of the encryption capability using Rijndael. allowable under the Apache 2.0 license.
     /// </summary>
-    public class EncryptionService : IEncryptionService
+    public class EncryptionService : IEncryptionService, IEncryptionServiceWithContext
     {
         /// <summary>
         /// Symmetric key used for encryption.
@@ -62,10 +62,10 @@ namespace NServiceBus.Encryption.Rijndael
         /// </summary>
         public IDictionary<string, byte[]> Keys { private get; set; }
 
-        string IEncryptionService.Decrypt(EncryptedValue encryptedValue)
+        string IEncryptionServiceWithContext.Decrypt(EncryptedValue encryptedValue, object context)
         {
             string keyIdentifier;
-            if (TryGetKeyIdentifierHeader(out keyIdentifier))
+            if (TryGetKeyIdentifierHeader(context, out keyIdentifier))
             {
                 return DecryptUsingKeyIdentifier(encryptedValue, keyIdentifier);
             }
@@ -94,15 +94,15 @@ namespace NServiceBus.Encryption.Rijndael
             }
         }
 
-        EncryptedValue IEncryptionService.Encrypt(string value)
+        EncryptedValue IEncryptionServiceWithContext.Encrypt(string value, object context)
         {
             if (Key == null)
                 throw new InvalidOperationException("Cannot encrypt because a Key was not configured. Please specify 'RijndaelEncryptionServiceConfig' in your application's configuration file.");
 
             if (string.IsNullOrEmpty(EncryptionKeyIdentifier))
-                throw new InvalidOperationException("It is required to set the rijndael key identifer.");
+                throw new InvalidOperationException("It is required to set the rijndael key identifier.");
 
-            AddKeyIdentifierHeader();
+            AddKeyIdentifierHeader(context);
 
             using (var rijndael = new RijndaelManaged())
             {
@@ -166,14 +166,25 @@ namespace NServiceBus.Encryption.Rijndael
             }
         }
 
-        protected virtual void AddKeyIdentifierHeader()
+        protected virtual void AddKeyIdentifierHeader(object context)
         {
-            Bus.OutgoingHeaders[Headers.RijndaelKeyIdentifier] = EncryptionKeyIdentifier;
+            Bus.SetMessageHeader(context, Headers.RijndaelKeyIdentifier, EncryptionKeyIdentifier);
         }
 
-        protected virtual bool TryGetKeyIdentifierHeader(out string keyIdentifier)
+        protected virtual bool TryGetKeyIdentifierHeader(object context, out string keyIdentifier)
         {
-            return Bus.CurrentMessageContext.Headers.TryGetValue(Headers.RijndaelKeyIdentifier, out keyIdentifier);
+            keyIdentifier = Bus.GetMessageHeader(context, Headers.RijndaelKeyIdentifier);
+            return !string.IsNullOrEmpty(keyIdentifier);
+        }
+
+        string IEncryptionService.Decrypt(EncryptedValue value)
+        {
+            throw new NotSupportedException();
+        }
+
+        EncryptedValue IEncryptionService.Encrypt(string value)
+        {
+            throw new NotSupportedException();
         }
 
         static readonly ILog Logger = LogManager.GetLogger(typeof(EncryptionService));

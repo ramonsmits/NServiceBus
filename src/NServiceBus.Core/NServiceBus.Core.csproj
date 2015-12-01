@@ -129,6 +129,7 @@
     <Compile Include="Distributor\ReadyMessages\ReturnAddressRewriter.cs" />
     <Compile Include="DataBus\DataBusReceiveBehavior.cs" />
     <Compile Include="DataBus\DataBusSendBehavior.cs" />
+    <Compile Include="Encryption\IEncryptionServiceWithContext.cs" />
     <Compile Include="Encryption\MemberInfoExtensions.cs" />
     <Compile Include="Encryption\RijndaelEncryptionServiceConfigValidations.cs" />
     <Compile Include="ExceptionExtensions.cs" />

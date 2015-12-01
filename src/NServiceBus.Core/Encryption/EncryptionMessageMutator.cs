@@ -16,16 +16,18 @@ namespace NServiceBus.Encryption
     public class EncryptionMessageMutator : IMessageMutator
     {
         public IEncryptionService EncryptionService { get; set; }
-
         public object MutateOutgoing(object message)
         {
+            root = message;
             ForEachMember(message, EncryptMember, IsEncryptedMember);
 
             return message;
         }
 
+
         public object MutateIncoming(object message)
         {
+            root = message;
             ForEachMember(message, DecryptMember, IsEncryptedMember);
 
             return message;
@@ -198,7 +200,7 @@ namespace NServiceBus.Encryption
 
             var parts = stringToDecrypt.Split(new[] { '@' }, StringSplitOptions.None);
 
-            return EncryptionService.Decrypt(new EncryptedValue
+            return Decrypt(new EncryptedValue
             {
                 EncryptedBase64Value = parts[0],
                 Base64Iv = parts[1]
@@ -212,7 +214,7 @@ namespace NServiceBus.Encryption
                 throw new Exception("Encrypted property is missing encryption data");
             }
 
-            encryptedValue.Value = EncryptionService.Decrypt(encryptedValue.EncryptedValue);
+            encryptedValue.Value = Decrypt(encryptedValue.EncryptedValue);
         }
 
         string EncryptUserSpecifiedProperty(object valueToEncrypt)
@@ -224,14 +226,14 @@ namespace NServiceBus.Encryption
                 throw new Exception("Only string properties is supported for convention based encryption, please check your convention");
             }
 
-            var encryptedValue = EncryptionService.Encrypt(stringToEncrypt);
+            var encryptedValue = Encrypt(stringToEncrypt);
 
             return string.Format("{0}@{1}", encryptedValue.EncryptedBase64Value, encryptedValue.Base64Iv);
         }
 
         void EncryptWireEncryptedString(WireEncryptedString wireEncryptedString)
         {
-            wireEncryptedString.EncryptedValue = EncryptionService.Encrypt(wireEncryptedString.Value);
+            wireEncryptedString.EncryptedValue = Encrypt(wireEncryptedString.Value);
             wireEncryptedString.Value = null;
 
         }
@@ -252,7 +254,36 @@ namespace NServiceBus.Encryption
                     .ToList();
             }
 
+            
             return members;
+        }
+
+        string Decrypt(EncryptedValue encryptedValue)
+        {
+            var withContext = EncryptionService as IEncryptionServiceWithContext;
+
+            if (withContext != null)
+            {
+                return withContext.Decrypt(encryptedValue, root);
+            }
+            else
+            {
+                return EncryptionService.Decrypt(encryptedValue);
+            }
+        }
+
+        EncryptedValue Encrypt(string stringToEncrypt)
+        {
+            var withContext = EncryptionService as IEncryptionServiceWithContext;
+
+            if (withContext != null)
+            {
+                return withContext.Encrypt(stringToEncrypt, root);
+            }
+            else
+            {
+                return EncryptionService.Encrypt(stringToEncrypt);
+            }
         }
 
         HashSet<object> visitedMembers = new HashSet<object>();
@@ -260,5 +291,8 @@ namespace NServiceBus.Encryption
         static ConcurrentDictionary<Type, IEnumerable<MemberInfo>> cache = new ConcurrentDictionary<Type, IEnumerable<MemberInfo>>();
 
         static ILog Log = LogManager.GetLogger(typeof(IEncryptionService));
+
+        object root;
     }
+
 }
