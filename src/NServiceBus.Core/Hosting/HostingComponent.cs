@@ -19,6 +19,7 @@ partial class HostingComponent(HostingComponent.Configuration configuration, Ins
 
         serviceCollection.AddSingleton(_ => configuration.HostInformation);
         serviceCollection.AddSingleton(_ => configuration.CriticalError);
+        serviceCollection.AddSingleton(_ => Logging.LogManager.LoggerFactory);
 
         // Apply user registrations last, so that user overrides win.
         foreach (var registration in configuration.UserRegistrations)

@@ -61,5 +61,7 @@ public static class LogManager
         return loggerFactory.Value.GetLogger(name);
     }
 
+    internal static ILoggerFactory LoggerFactory => loggerFactory.Value;
+
     static Lazy<ILoggerFactory> loggerFactory = new(new DefaultFactory().GetLoggingFactory);
 }
